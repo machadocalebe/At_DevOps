@@ -1,0 +1,168 @@
+# namespace ufology
+# ---------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ufology
+---
+
+# ConfigMap
+# ---------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ufology
+data:
+  DB_NAME: ufology
+---
+
+# Secret
+# ---------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: ufology
+type: Opaque
+data:
+  DB_PASSWORD: ZGV2b3BzMjAyNSE=
+---
+
+# Banco de Dados PostgreSQL
+# ---------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: ufology
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: leogloriainfnet/ufodb
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+          ports:
+            - containerPort: 5432
+---
+# Service do Banco
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: ufology
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+
+# Cache Redis
+# ---------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: ufology
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+---
+# Service do Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: ufology
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+
+# UfoTracker App
+# ---------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ufotracker-deployment
+  namespace: ufology
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ufotracker
+  template:
+    metadata:
+      labels:
+        app: ufotracker
+    spec:
+      containers:
+        - name: ufotracker
+          image: klbcode/ufotracker:v1
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres-service:5432/ufology
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+            - name: SPRING_REDIS_HOST
+              value: redis-service
+          ports:
+            - containerPort: 8080
+---
+# MISSÃO 4: Service da Aplicação
+apiVersion: v1
+kind: Service
+metadata:
+  name: ufotracker-service
+  namespace: ufology
+spec:
+  selector:
+    app: ufotracker
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
