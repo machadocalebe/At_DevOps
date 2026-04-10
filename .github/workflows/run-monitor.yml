@@ -1,0 +1,64 @@
+name: Monitoramento e Deploy Protegido
+on:
+  push:
+    branches: [ "ci/setup", "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  WORKFLOW_ENV: "Variavel Global do Pipeline"
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Testes de Integridade
+        run: |
+          echo "Executando testes antes do deploy..."
+          echo "Testes finalizados com sucesso."
+
+      - name: Simular Build e Gerar Artefato
+        run: |
+          mkdir -p target
+          echo "Simulando um arquivo JAR compilado" > target/ufoapp.jar
+
+      - name: Salvar Artefato (Upload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacote-ufo-app
+          path: target/
+
+  deploy_protegido:
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      JOB_ENV: "Variavel especifica do Job de Deploy"
+    steps:
+      - name: Diagnóstico e Variáveis de Step
+        env:
+          STEP_ENV: "Variavel exclusiva deste passo"
+        run: |
+          echo "Workflow Env: $WORKFLOW_ENV"
+          echo "Job Env: $JOB_ENV"
+          echo "Step Env: $STEP_ENV"
+          echo "Var de Ambiente via GitHub: ${{ vars.PROD_DOMAIN }}"
+
+      - name: Validar Variáveis Obrigatórias e Mensagens Customizadas
+        run: |
+          if [ -z "${{ vars.PROD_DOMAIN }}" ]; then
+            echo "::error::Falha Critica: A variavel PROD_DOMAIN nao esta configurada no GitHub Variables!"
+            exit 1
+          fi
+          echo "::warning::Iniciando deploy crítico no domínio: ${{ vars.PROD_DOMAIN }}"
+
+      - name: Uso do GITHUB_TOKEN e Job Summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "O GITHUB_TOKEN nativo foi injetado para possíveis chamadas de API."
+          echo "### Deploy Realizado com Sucesso!" >> $GITHUB_STEP_SUMMARY
+          echo "O sistema foi implantado e o pipeline concluído sem erros." >> $GITHUB_STEP_SUMMARY

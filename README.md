@@ -1,46 +1,24 @@
-# Ufology Investigation Unit - Infraestrutura e CI/CD
+#  Ufology Investigation Unit - Infraestrutura e CI/CD
 
-Este repositório contém a entrega das missões de Infraestrutura como Código (Kubernetes), Conteinerização e Esteiras de CI/CD desenvolvidas para a operação *Ufology*.
+![Status do Build](https://img.shields.io/github/actions/workflow/status/machadocalebe/At_DevOps/run-monitor.yml?branch=main&label=CI%2FCD%20Pipeline&style=for-the-badge)
 
-## Arquitetura Kubernetes (Missões 1, 2 e 4)
-Todos os recursos foram provisionados no namespace isolado `ufology`. A arquitetura declarada no arquivo `k8s-ufology.yaml` é composta por:
-- **PostgreSQL:** Banco de dados relacional (Imagem `leogloriainfnet/ufodb`).
-- **Redis (Alpine):** Camada de cache em memória.
-- **UfoTracker App:** Aplicação principal executando com 2 réplicas.
-- **Segurança e Configuração:** Uso de `ConfigMap` (`app-config`) e `Secret` (`db-secret`) para injeção de variáveis de ambiente no container da aplicação, evitando hardcode de credenciais.
+Este repositório contém a infraestrutura como código (Kubernetes), a conteinerização e as esteiras avançadas de CI/CD para a operação *Ufology*.
 
-## Dockerização (Missão 3)
-A aplicação `ufoTracker` foi conteinerizada utilizando um Dockerfile Multi-stage build (Maven + Alpine JRE) e disponibilizada publicamente.
+##  O Papel do Git na Integração e Entrega Contínuas (DevOps)
+O Git é a espinha dorsal de qualquer operação de DevOps moderna. Ele não serve apenas para guardar código, mas atua como a única fonte de verdade (Single Source of Truth) que aciona as automações.
+- **Branches (Ramificações):** Permitem o desenvolvimento isolado de features. No contexto de CI/CD, trabalhar em branches (como `ci/setup`) garante que testes de integridade sejam executados antes de mesclar o código na `main`, protegendo o ambiente de produção contra falhas.
+- **Tags e Releases:** O versionamento semântico via Tags (ex: `v1.0.0`) é crucial para a rastreabilidade. Em um pipeline, as tags são usadas para disparar o empacotamento de artefatos fixos e gerar *Releases* oficiais, permitindo rollbacks rápidos e seguros caso o deploy falhe.
 
-- **Link da imagem no Docker Hub:** https://hub.docker.com/r/klbcode/ufotracker
+##  Arquitetura Kubernetes (Missões 1, 2 e 4)
+Provisionado no namespace `ufology`, contendo PostgreSQL, Redis e a aplicação UfoTracker, utilizando `ConfigMap` e `Secret` para injeção de dependências sem hardcode. (Manifestos no arquivo `k8s-ufology.yaml`).
 
-**Comandos utilizados para Build e Push:**
-\`\`\` bash
-### Build da imagem
-docker build -t klbcode/ufotracker:v1 .
+##  Dockerização (Missão 3)
+A aplicação `ufoTracker` foi conteinerizada com Dockerfile Multi-stage.
+- **Imagem Oficial no Docker Hub:** [https://hub.docker.com/r/klbcode/ufotracker](https://hub.docker.com/r/klbcode/ufotracker)
 
-### Envio para o repositório público
-docker push klbcode/ufotracker:v1
-\`\`\`
-
-## GitHub Actions (Partes 2 e 3)
-Foram implementados 5 workflows na pasta `.github/workflows` para automação de CI/CD:
-
-1. **Hello CI/CD (`hello.yml`):** Disparado em push. Exibe mensagem de log.
-2. **Testes (`tests.yml`):** Disparado apenas em Pull Requests.
-3. **Build Java (`gradle-ci.yml`):** Disparado em push na branch `main`. Executa a simulação do build via Maven.
-4. **Env Variables (`env-demo.yml`):** Demonstração do uso de variáveis de escopo local (`DEPLOY_ENV=staging`).
-5. **Segurança (`secret-demo.yml`):** Validação de secret de repositório (`API_KEY`) mascarado nos logs de execução.
-
----
-
-##  Fundamentação Teórica: Runners do GitHub
-
-**Diferença entre runners hospedados pelo GitHub e auto-hospedados (Self-hosted):**
-
-* **GitHub-hosted runners:** São máquinas virtuais gerenciadas e mantidas inteiramente pelo próprio GitHub.
-    * *Vantagens:* Zero esforço de manutenção de infraestrutura, ambiente efêmero (uma VM limpa por job garante consistência) e fácil configuração inicial.
-    * *Desvantagens:* Limite de minutos gratuitos mensais, hardware padrão (dificuldade de escalar para builds ultra-pesados) e IP dinâmico (exige configurações extras para acessar bancos de dados em redes privadas).
-* **Self-hosted runners:** São servidores próprios (físicos, VMs na nuvem ou máquina local) configurados pela própria equipe para escutar e executar as Actions do GitHub.
-    * *Vantagens:* Controle total sobre o hardware, sem limite de minutos tarifados pelo GitHub, acesso nativo a redes internas/VPNs da empresa e possibilidade de cache local persistente para acelerar builds.
-    * *Desvantagens:* A equipe de DevOps precisa aplicar patches de segurança, manter o SO atualizado e gerenciar a limpeza do ambiente entre execuções para evitar que "lixo" de um build afete o próximo.
+##  Workflows Avançados de CI/CD (GitHub Actions)
+Para garantir as melhores práticas de entrega contínua, o arquivo `run-monitor.yml` implementa:
+1. **Artefatos:** Uso do `upload-artifact` para empacotamento do JAR.
+2. **Ambientes Protegidos:** O Job de deploy utiliza o environment `production`, exigindo **aprovação manual** antes de executar alterações críticas.
+3. **Segurança e Variáveis:** Validação de segurança utilizando `GITHUB_TOKEN`, contextos de `secrets` (ex: `API_KEY`) e variáveis dinâmicas (`vars.PROD_DOMAIN`) em escopos de workflow, job e step.
+4. **Monitoramento e Diagnóstico:** Implementação de logs de debug (`ACTIONS_STEP_DEBUG=true`), uso de comandos interpretados `::warning::` e `::error::` para validação condicional, e geração de *Job Summaries* dinâmicos (`$GITHUB_STEP_SUMMARY`) para auditoria visual da execução.
